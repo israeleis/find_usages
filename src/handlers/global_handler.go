@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-func HandleChannels(channels models.FlowChannels, wg *sync.WaitGroup, findValues []string, fileTypes []string, resultsStorage map[string][]models.Usage, concurrencyLimit int) {
+func HandleChannels(channels models.FlowChannels, wg *sync.WaitGroup, findValues []string, fileTypes []string, resultsStorage *map[string]*models.UsagesResults, concurrencyLimit int) {
 
 	go collectDirectories(&channels, fileTypes)
 	sem := make(chan struct{}, concurrencyLimit)

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"github.com/israeleis/findUsages/src/models"
-	log "github.com/sirupsen/logrus"
 	"strings"
 	"sync"
 )
@@ -18,10 +17,10 @@ func handleFile(content models.FileContent, values []string, usagesCh chan<- mod
 	//wg.Add(1)
 	//defer wg.Done()
 
-	log.WithFields(
-		log.Fields{
-			"filePath": content.Path,
-		}).Info("new file content search for usages")
+	//log.WithFields(
+	//	log.Fields{
+	//		"filePath": content.Path,
+	//	}).Info("new file content search for usages")
 
 	contentStr := string(content.Content)
 	for _, value := range values {

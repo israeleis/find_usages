@@ -35,16 +35,16 @@ func main() {
 		panic("parameter 'dir' is missing")
 	}
 
-	absolutePath, err := filepath.Abs(*findValuesFile)
+	findValuesFileAbsolutePath, err := filepath.Abs(*findValuesFile)
 	if err != nil {
 		panic("parameter 'dir' is missing" + err.Error())
 	}
-	findValues := extractFindValues(absolutePath)
+	findValues := extractFindValues(findValuesFileAbsolutePath)
 
 	channels := createChannels()
 
 	go handleErrors(channels.Errors)
-	resultsCache := make(map[string][]models.Usage)
+	resultsCache := initCache(findValues)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -59,13 +59,36 @@ func main() {
 	go handlers.HandleChannels(channels, &wg, findValues, includeTypesLower, resultsCache, 1)
 	//registerHandlers(channels, &wg, findValues, includeTypesLower, resultsCache)
 
-	time.Sleep(5 * time.Second)
 	wg.Wait()
+	time.Sleep(5 * time.Second)
 
-	channels.Close()
+	defer channels.Close()
 
-	doneCh := make(chan struct{}, 1)
-	<-doneCh
+	res := collectResults(resultsCache)
+	fmt.Println(res)
+}
+
+func collectResults(storage *map[string]*models.UsagesResults) string {
+	var resLines []string
+
+	aa := (*storage)[".GetServiceLastAuditLog("]
+	println(fmt.Sprintf("%v", aa))
+	for _, usagesResults := range *storage {
+		resLines = append(resLines, usagesResults.String())
+	}
+
+	return strings.Join(resLines, "\n------------------------------------------------\n")
+}
+
+func initCache(findValues []string) *map[string]*models.UsagesResults {
+	resultsCache := make(map[string]*models.UsagesResults)
+	for _, value := range findValues {
+		resultsCache[value] = &models.UsagesResults{
+			FindValue: value,
+			Usages:    []models.Usage{},
+		}
+	}
+	return &resultsCache
 }
 
 func handleErrors(errorsCh <-chan error) {

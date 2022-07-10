@@ -2,15 +2,14 @@ package handlers
 
 import (
 	"github.com/israeleis/findUsages/src/models"
-	log "github.com/sirupsen/logrus"
 	"os"
 )
 
 func FilePathToFileContentChannelHandler(fileContentCh chan<- models.FileContent, filePath string, errorCh chan<- error) {
-	log.WithFields(
-		log.Fields{
-			"filePath": filePath,
-		}).Info("new file path has been found for search")
+	//log.WithFields(
+	//	log.Fields{
+	//		"filePath": filePath,
+	//	}).Info("new file path has been found for search")
 
 	readFileContent(filePath, errorCh, fileContentCh)
 
