@@ -7,7 +7,6 @@ import (
 	"github.com/israeleis/findUsages/src/lib/flags"
 	"github.com/israeleis/findUsages/src/models"
 	log "github.com/sirupsen/logrus"
-	"github.com/thoas/go-funk"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -18,18 +17,19 @@ import (
 var wg sync.WaitGroup
 
 func main() {
-	var includeTypes flags.ArrayFlags
+	var includeFileNameFilters flags.ArrayFlags
+	var excludeFileNameFilters flags.ArrayFlags
 
 	findValuesFile := flag.String("values_file", "", "File path to take search values, Each line will contains different search value")
+	isRegex := flag.Bool("regex", false, "search with Regex (Default 'false')")
 	dirPath := flag.String("dir", "", "Directory to search in")
-	flag.Var(&includeTypes, "include", "Include file type")
-	flag.Var(&includeTypes, "i", "Include file type(Shortener)")
+	flag.Var(&includeFileNameFilters, "include", "Include file type")
+	flag.Var(&includeFileNameFilters, "i", "Include file type(Shortener)")
+	flag.Var(&excludeFileNameFilters, "exclude", "Exclude file type")
+	flag.Var(&excludeFileNameFilters, "ex", "Exclude file type(Shortener)")
+	maxUsages := flag.Int("max_usages", 1000, "max usages to be displayed")
 
 	flag.Parse()
-
-	includeTypesLower := funk.Map(includeTypes, func(s string) string {
-		return strings.ToLower(s)
-	}).([]string)
 
 	if dirPath == nil || *dirPath == "" {
 		panic("parameter 'dir' is missing")
@@ -41,6 +41,11 @@ func main() {
 	}
 	findValues := extractFindValues(findValuesFileAbsolutePath)
 
+	filesFilter := models.FileNameFilters{
+		Include: models.CreateFileNameFilters(includeFileNameFilters),
+		Exclude: models.CreateFileNameFilters(excludeFileNameFilters),
+	}
+	matchers := models.CreateMatchers(findValues, *isRegex)
 	channels := createChannels()
 
 	go handleErrors(channels.Errors)
@@ -53,28 +58,32 @@ func main() {
 	}()
 
 	go func() {
+		wg.Add(1)
 		channels.Directories <- *dirPath
 	}()
 
-	go handlers.HandleChannels(channels, &wg, findValues, includeTypesLower, resultsCache, 1)
+	go handlers.HandleChannels(channels, &wg, matchers, isRegex, filesFilter, resultsCache, 50)
 	//registerHandlers(channels, &wg, findValues, includeTypesLower, resultsCache)
 
+	time.Sleep(60 * time.Second)
+
 	wg.Wait()
-	time.Sleep(5 * time.Second)
+	println("sleeping")
+	time.Sleep(3 * time.Second)
 
 	defer channels.Close()
 
-	res := collectResults(resultsCache)
+	res := collectResults(resultsCache, *maxUsages)
 	fmt.Println(res)
 }
 
-func collectResults(storage *map[string]*models.UsagesResults) string {
+func collectResults(storage *map[string]*models.UsagesResults, maxUsages int) string {
 	var resLines []string
 
-	aa := (*storage)[".GetServiceLastAuditLog("]
-	println(fmt.Sprintf("%v", aa))
 	for _, usagesResults := range *storage {
-		resLines = append(resLines, usagesResults.String())
+		if len(usagesResults.Usages) <= maxUsages {
+			resLines = append(resLines, usagesResults.String())
+		}
 	}
 
 	return strings.Join(resLines, "\n------------------------------------------------\n")

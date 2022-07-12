@@ -2,15 +2,14 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/israeleis/findUsages/src/lib/flags"
+	"github.com/israeleis/findUsages/src/models"
 	"github.com/pkg/errors"
 	"io/ioutil"
-	"strings"
+	"sync"
 )
 
-func CollectDirFiles(filePathCh chan<- string, dirPath string, fileTypes []string, errorsCh chan error) []string {
-
-	var anotheDirectories []string
+func CollectDirFiles(filePathCh chan<- string, dirPath string, fileFilters models.FileNameFilters, wg *sync.WaitGroup, errorsCh chan error) []string {
+	var anotherDirectories []string
 
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
@@ -18,29 +17,20 @@ func CollectDirFiles(filePathCh chan<- string, dirPath string, fileTypes []strin
 	}
 
 	for _, file := range files {
+
+		//fn := file.Name()
+		//fmt.Println(fn)
 		absPath := fmt.Sprintf("%s/%s", dirPath, file.Name())
 		if file.IsDir() {
-			anotheDirectories = append(anotheDirectories, absPath)
-		} else if fileTypeAllowed(fileTypes, absPath) {
+			wg.Add(1)
+			anotherDirectories = append(anotherDirectories, absPath)
+		} else if fileFilters.IsRelevant(absPath) {
 			//go func() {
+			wg.Add(1)
 			filePathCh <- absPath
 			//}()
 
 		}
 	}
-	return anotheDirectories
-}
-
-func fileTypeAllowed(fileTypes flags.ArrayFlags, path string) bool {
-	lastDotInd := strings.LastIndex(path, ".")
-	if lastDotInd == -1 {
-		return false
-	}
-	ext := path[lastDotInd+1:]
-	for _, fileType := range fileTypes {
-		if fileType == ext {
-			return true
-		}
-	}
-	return false
+	return anotherDirectories
 }

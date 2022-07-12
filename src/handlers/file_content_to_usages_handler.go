@@ -6,13 +6,14 @@ import (
 	"sync"
 )
 
-func FileContentToUsagesHandler(fileContent models.FileContent, values []string, usagesFoundCh chan<- models.UsageResult, wg *sync.WaitGroup, errorCh chan<- error) {
+func FileContentToUsagesHandler(fileContent models.FileContent, matchers []models.Matcher, regex *bool, usagesFoundCh chan<- models.UsageResult, wg *sync.WaitGroup, errorCh chan<- error) {
+	defer wg.Done()
 	//for content := range fileContentCh {
-	handleFile(fileContent, values, usagesFoundCh, wg)
+	handleFile(fileContent, matchers, regex, usagesFoundCh, wg)
 	//}
 }
 
-func handleFile(content models.FileContent, values []string, usagesCh chan<- models.UsageResult, wg *sync.WaitGroup) {
+func handleFile(content models.FileContent, matchers []models.Matcher, regex *bool, usagesCh chan<- models.UsageResult, wg *sync.WaitGroup) {
 
 	//wg.Add(1)
 	//defer wg.Done()
@@ -23,27 +24,18 @@ func handleFile(content models.FileContent, values []string, usagesCh chan<- mod
 	//	}).Info("new file content search for usages")
 
 	contentStr := string(content.Content)
-	for _, value := range values {
-		if strings.Contains(contentStr, value) {
-			lines := strings.Split(contentStr, "\n")
-			for i, line := range lines {
-				if strings.Contains(line, value) {
-					wg.Add(1)
-					//go func() {
-
-					usagesCh <- models.UsageResult{
-						FindValue: value,
-						Usage: models.Usage{
-							FilePath:   content.Path,
-							Line:       line,
-							LineNumber: i,
-							Index:      strings.Index(line, value),
-						},
-					}
-					//}()
-				}
+	for _, matcher := range matchers {
+		lines := strings.Split(contentStr, "\n")
+		for i, line := range lines {
+			usage := matcher.FindUsage(line, content.Path, i)
+			if usage == nil {
+				continue
 			}
-
+			wg.Add(1)
+			usagesCh <- models.UsageResult{
+				FindValue: matcher.GetValue(),
+				Usage:     *usage,
+			}
 		}
 	}
 }

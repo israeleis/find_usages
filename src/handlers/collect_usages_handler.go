@@ -7,11 +7,11 @@ import (
 )
 
 func CollectResults(usageResult models.UsageResult, resultsStorage *map[string]*models.UsagesResults, wg *sync.WaitGroup) {
+	defer wg.Done()
 	handleUsageStore(resultsStorage, usageResult, wg)
 }
 
 func handleUsageStore(resultsStorage *map[string]*models.UsagesResults, resultUsage models.UsageResult, wg *sync.WaitGroup) {
-	defer wg.Done()
 
 	findUsagesStored, exists := (*resultsStorage)[resultUsage.FindValue]
 	if !exists {
